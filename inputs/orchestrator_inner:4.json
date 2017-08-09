@@ -75,11 +75,16 @@
     {
       "name": "group_manifests",
       "args": {
+        "registries": {
+          "{{REGISTRY_URI}}": { "insecure": true }
+        }
       }
     },
     {
       "name": "pulp_tag",
       "args": {
+        "pulp_registry_name": "{{PULP_REGISTRY_NAME}}",
+        "dockpulp_loglevel": "INFO"
       }
     },
     {
@@ -97,6 +102,8 @@
     {
       "name": "pulp_publish",
       "args": {
+        "pulp_registry_name": "{{PULP_REGISTRY_NAME}}",
+        "dockpulp_loglevel": "INFO"
       }
     },
     {

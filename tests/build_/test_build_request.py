@@ -2209,50 +2209,37 @@ class TestBuildRequest(object):
                                 'add_labels_in_dockerfile', 'args',
                                 'info_url_format') == info_url_format
 
-    @pytest.mark.parametrize(('platform_descriptors', 'goarch',
-                              'pulp_registry', 'pulp_secret'), [
-        ({}, {}, True, True),
-        ({}, {}, True, False),
-        ({}, {}, False, True),
-        ({}, {}, False, False),
-        ({'ham': {'architecture': 'ham'}}, {'ham': 'ham'}, True, True),
+    @pytest.mark.parametrize(('platform_descriptors', 'goarch'), [
+        ({}, {}),
+        ({'ham': {'architecture': 'ham'}}, {'ham': 'ham'}),
         ({'ham': {'architecture': 'bacon'}, 'eggs': {'architecture': 'eggs'}},
-         {'ham': 'bacon', 'eggs': 'eggs'}, True, True),
+         {'ham': 'bacon', 'eggs': 'eggs'}),
     ])
-    def test_render_group_manifest(self, platform_descriptors, goarch,
-                                   pulp_registry, pulp_secret):
+    def test_render_group_manifest(self, platform_descriptors, goarch):
         plugin_type = "postbuild_plugins"
         plugin_name = "group_manifests"
 
         br = BuildRequest(INPUTS_PATH)
         kwargs = get_sample_prod_params()
-        if pulp_registry:
-            kwargs['pulp_registry'] = "registry.example.com"
-        if pulp_secret:
-            kwargs['pulp_secret'] = "pulp_secret"
         kwargs['platform_descriptors'] = platform_descriptors
         br.set_params(**kwargs)
+        args = {
+            "registries": {
+                "registry.example.com": {"insecure": True}
+            }
+        }
 
         br.dj.dock_json_set_param(plugin_type, [])
-        br.dj.add_plugin(plugin_type, plugin_name, {})
-
-        if pulp_registry and not pulp_secret:
-            with pytest.raises(OsbsValidationException):
-                br.render()
-            return
+        br.dj.add_plugin(plugin_type, plugin_name, args)
 
         build_json = br.render()
         plugins = get_plugins_from_build_json(build_json)
 
-        if pulp_registry:
-            assert get_plugin(plugins, plugin_type, plugin_name)
-            assert plugin_value_get(plugins, plugin_type, plugin_name, 'args',
-                                    'pulp_registry_name')
-            assert plugin_value_get(plugins, plugin_type, plugin_name, 'args',
-                                    'goarch') == goarch
-        else:
-            with pytest.raises(NoSuchPluginException):
-                get_plugin(plugins, plugin_type, plugin_name)
+        assert get_plugin(plugins, plugin_type, plugin_name)
+        assert plugin_value_get(plugins, plugin_type, plugin_name, 'args',
+                                'registries')
+        assert plugin_value_get(plugins, plugin_type, plugin_name, 'args',
+                                'goarch') == goarch
 
     @pytest.mark.parametrize(('platform', 'platforms', 'is_auto', 'scratch', 'expected'), [
         (None, None, False, False, {'explicit1': 'yes',
@@ -2340,3 +2327,73 @@ class TestBuildRequest(object):
             assert build_json['spec']['nodeSelector'] == expected
         else:
             assert 'nodeSelector' not in build_json['spec']
+
+    @pytest.mark.parametrize(('pulp_registry', 'pulp_secret'), [
+        (True, True),
+        (True, False),
+        (False, True),
+        (False, False),
+    ])
+    def test_render_pulp_tag(self, pulp_registry, pulp_secret):
+        plugin_type = "postbuild_plugins"
+        plugin_name = "pulp_tag"
+
+        br = BuildRequest(INPUTS_PATH)
+        kwargs = get_sample_prod_params()
+        if pulp_registry:
+            kwargs['pulp_registry'] = "registry.example.com"
+        if pulp_secret:
+            kwargs['pulp_secret'] = "pulp_secret"
+        br.set_params(**kwargs)
+
+        br.dj.dock_json_set_param(plugin_type, [])
+        br.dj.add_plugin(plugin_type, plugin_name, {})
+
+        if pulp_registry and not pulp_secret:
+            with pytest.raises(OsbsValidationException):
+                br.render()
+            return
+
+        build_json = br.render()
+        plugins = get_plugins_from_build_json(build_json)
+
+        if pulp_registry:
+            assert get_plugin(plugins, plugin_type, plugin_name)
+        else:
+            with pytest.raises(NoSuchPluginException):
+                get_plugin(plugins, plugin_type, plugin_name)
+
+    @pytest.mark.parametrize(('pulp_registry', 'pulp_secret'), [
+        (True, True),
+        (True, False),
+        (False, True),
+        (False, False),
+    ])
+    def test_render_pulp_publish(self, pulp_registry, pulp_secret):
+        plugin_type = "exit_plugins"
+        plugin_name = "pulp_publish"
+
+        br = BuildRequest(INPUTS_PATH)
+        kwargs = get_sample_prod_params()
+        if pulp_registry:
+            kwargs['pulp_registry'] = "registry.example.com"
+        if pulp_secret:
+            kwargs['pulp_secret'] = "pulp_secret"
+        br.set_params(**kwargs)
+
+        br.dj.dock_json_set_param(plugin_type, [])
+        br.dj.add_plugin(plugin_type, plugin_name, {})
+
+        if pulp_registry and not pulp_secret:
+            with pytest.raises(OsbsValidationException):
+                br.render()
+            return
+
+        build_json = br.render()
+        plugins = get_plugins_from_build_json(build_json)
+
+        if pulp_registry:
+            assert get_plugin(plugins, plugin_type, plugin_name)
+        else:
+            with pytest.raises(NoSuchPluginException):
+                get_plugin(plugins, plugin_type, plugin_name)

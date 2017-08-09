@@ -743,6 +743,7 @@ class TestArrangementV3(TestArrangementV2):
         }
         assert match_args == args
 
+
 class TestArrangementV4(TestArrangementV3):
     """
     Orchestrator build differences from arrangement version 3:
@@ -924,8 +925,17 @@ class TestArrangementV4(TestArrangementV3):
         plugins = get_plugins_from_build_json(build_json)
 
         args = plugin_value_get(plugins, 'postbuild_plugins', 'pulp_tag', 'args')
+        build_conf = osbs_with_pulp.build_conf
+        pulp_registry_name = build_conf.get_pulp_registry()
+        pulp_secret_path = '/'.join([SECRETS_PATH, build_conf.get_pulp_secret()])
 
-        assert args == {}
+        expected_args = {
+            'pulp_registry_name': pulp_registry_name,
+            'pulp_secret_path': pulp_secret_path,
+            'dockpulp_loglevel': 'INFO',
+        }
+
+        assert args == expected_args
 
     def test_pulp_sync(self, osbs_with_pulp):  # noqa:F811
         additional_params = {
@@ -958,7 +968,16 @@ class TestArrangementV4(TestArrangementV3):
         plugins = get_plugins_from_build_json(build_json)
 
         args = plugin_value_get(plugins, 'exit_plugins', 'pulp_publish', 'args')
-        expected_args = {}
+        build_conf = osbs_with_pulp.build_conf
+        pulp_registry_name = build_conf.get_pulp_registry()
+        pulp_secret_path = '/'.join([SECRETS_PATH, build_conf.get_pulp_secret()])
+
+        expected_args = {
+            'pulp_registry_name': pulp_registry_name,
+            'pulp_secret_path': pulp_secret_path,
+            'dockpulp_loglevel': 'INFO',
+        }
+
         assert args == expected_args
 
     def test_pulp_pull(self, osbs_with_pulp):  # noqa:F811
@@ -1000,9 +1019,11 @@ class TestArrangementV4(TestArrangementV3):
         plugins = get_plugins_from_build_json(build_json)
 
         args = plugin_value_get(plugins, 'postbuild_plugins', 'group_manifests', 'args')
+        docker_registry = self.get_pulp_sync_registry(osbs_api.build_conf)
+
         expected_args = {
             'goarch': {'x86_64': 'amd64'},
             'group': False,
-            'pulp_registry_name': osbs_api.build_conf.get_pulp_registry()
+            'registries': {docker_registry: {'insecure': True, 'version': 'v2'}}
         }
         assert args == expected_args
